@@ -10,21 +10,29 @@ import urllib
 
 logger = logging.getLogger(__name__)
 
-
 class FirmwarePipeline(FilesPipeline):
+    def __init__(self, store_uri, download_func=None, db_url=None):
+        if not store_uri:
+            raise NotConfigured
+        self.store = self._get_store(store_uri)
 
-    def __init__(self, db_url):
         if db_url:
             import psycopg2
-            database = psycopg2.connect(database="firmware", user="firmadyne",
-                                        password="firmadyne", host="127.0.0.1",
-                                        port=5432)
+            self.database = psycopg2.connect(database="firmware", user="firmadyne",
+                                             password="firmadyne", host="127.0.0.1",
+                                             port=5432)
         else:
-            database = None
+            self.database = None
+
+        super(FilesPipeline, self).__init__(download_func=download_func)
 
     @classmethod
-    def from_crawler(cls, crawler):
-        return cls(db_url=crawler.settings.get("SQL_SERVER"))
+    def from_settings(cls, settings):
+        cls.FILES_URLS_FIELD = settings.get('FILES_URLS_FIELD', cls.DEFAULT_FILES_URLS_FIELD)
+        cls.FILES_RESULT_FIELD = settings.get('FILES_RESULT_FIELD', cls.DEFAULT_FILES_RESULT_FIELD)
+        cls.EXPIRES = settings.getint('FILES_EXPIRES', 90)
+        store_uri = settings['FILES_STORE']
+        return cls(store_uri, download_func=None, db_url=settings.get("SQL_SERVER"))
 
     # overrides function from FilesPipeline
     def file_path(self, request, response=None, info=None):
@@ -73,10 +81,9 @@ class FirmwarePipeline(FilesPipeline):
         if isinstance(item, dict) or self.FILES_RESULT_FIELD in item.fields:
             item[self.FILES_RESULT_FIELD] = [x for ok, x in results if ok]
 
-        if FirmwarePipeline.database:
+        if self.database:
             try:
-                cur = FirmwarePipeline.database.cursor()
-
+                cur = self.database.cursor()
                 # create mapping between input URL fields and results for each
                 # URL
                 status = {}
@@ -127,7 +134,6 @@ class FirmwarePipeline(FilesPipeline):
                 cur.execute("SELECT id FROM product WHERE iid=%s AND product IS NOT DISTINCT FROM %s AND version IS NOT DISTINCT FROM %s AND build IS NOT DISTINCT FROM %s",
                             (image_id, item.get("product", None), item.get("version", None), item.get("build", None)))
                 product_id = cur.fetchone()
-                print(product_id)
 
                 if not product_id:
                     cur.execute("INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
@@ -140,13 +146,13 @@ class FirmwarePipeline(FilesPipeline):
                                 (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None), image_id))
                     logger.info("Updated database entry for product: %d!" % product_id)
 
-                FirmwarePipeline.database.commit()
+                self.database.commit()
             except BaseException as e:
-                FirmwarePipeline.database.rollback()
+                self.database.rollback()
                 logger.warning("Database connection exception: %s!" % e)
                 raise
             finally:
-                if cur:
+                if self.database and cur:
                     cur.close()
 
         return item
