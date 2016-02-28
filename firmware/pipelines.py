@@ -5,7 +5,6 @@ from scrapy.pipelines.files import FilesPipeline
 import os
 import hashlib
 import logging
-import psycopg2
 import urlparse
 import urllib
 
@@ -15,8 +14,13 @@ logger = logging.getLogger(__name__)
 class FirmwarePipeline(FilesPipeline):
 
     def __init__(self, db_url):
-        database = psycopg2.connect(database="firmware", user="firmadyne",
-                                    password="firmadyne", host="127.0.0.1", port=5432) if db_url else None
+        if db_url:
+            import psycopg2
+            database = psycopg2.connect(database="firmware", user="firmadyne",
+                                        password="firmadyne", host="127.0.0.1",
+                                        port=5432)
+        else:
+            database = None
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -26,7 +30,8 @@ class FirmwarePipeline(FilesPipeline):
     def file_path(self, request, response=None, info=None):
         extension = os.path.splitext(os.path.basename(
             urlparse.urlsplit(request.url).path))[1]
-        return "%s/%s%s" % (request.meta["vendor"], hashlib.sha1(request.url).hexdigest(), extension)
+        return "%s/%s%s" % (request.meta["vendor"],
+                            hashlib.sha1(request.url).hexdigest(), extension)
 
     # overrides function from FilesPipeline
     def get_media_requests(self, item, info):
@@ -93,22 +98,18 @@ class FirmwarePipeline(FilesPipeline):
                 image_id = cur.fetchone()
 
                 if not image_id:
-                    cur.execute("SELECT id FROM brand WHERE name=%s",
-                                (item["vendor"], ))
+                    cur.execute("SELECT id FROM brand WHERE name=%s", (item["vendor"], ))
                     brand_id = cur.fetchone()
 
                     if not brand_id:
-                        cur.execute(
-                            "INSERT INTO brand (name) VALUES (%s) RETURNING id", (item["vendor"], ))
+                        cur.execute("INSERT INTO brand (name) VALUES (%s) RETURNING id", (item["vendor"], ))
                         brand_id = cur.fetchone()
-                        logger.info(
-                            "Inserted database entry for brand: %d!" % brand_id)
+                        logger.info("Inserted database entry for brand: %d!" % brand_id)
 
-                    cur.execute("INSERT INTO image (filename, description, brand_id, hash) VALUES (%s, %s, %s, %s) RETURNING id", (status[
-                                "url"]["path"], item.get("description", None), brand_id, status["url"]["checksum"]))
+                    cur.execute("INSERT INTO image (filename, description, brand_id, hash) VALUES (%s, %s, %s, %s) RETURNING id",
+                                (status["url"]["path"], item.get("description", None), brand_id, status["url"]["checksum"]))
                     image_id = cur.fetchone()
-                    logger.info(
-                        "Inserted database entry for image: %d!" % image_id)
+                    logger.info("Inserted database entry for image: %d!" % image_id)
                 else:
                     cur.execute("SELECT filename FROM image WHERE hash=%s",
                                 (status["url"]["checksum"], ))
@@ -117,8 +118,8 @@ class FirmwarePipeline(FilesPipeline):
                     logger.info(
                         "Found existing database entry for image: %d!" % image_id)
                     if path[0] != status["url"]["path"]:
-                        os.remove(os.path.join(
-                            self.store.basedir, status["url"]["path"]))
+                        os.remove(os.path.join(self.store.basedir,
+                                               status["url"]["path"]))
                         logger.info("Removing duplicate file: %s!" %
                                     status["url"]["path"])
 
@@ -129,16 +130,15 @@ class FirmwarePipeline(FilesPipeline):
                 print(product_id)
 
                 if not product_id:
-                    cur.execute("INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id", (image_id, item["url"], status[
-                                "mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None)))
+                    cur.execute("INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                                (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None)))
                     product_id = cur.fetchone()
                     logger.info(
                         "Inserted database entry for product: %d!" % product_id)
                 else:
-                    cur.execute("UPDATE product SET (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) = (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE id=%s", (image_id, item["url"], status["mib"][
-                                "path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None), image_id))
-                    logger.info(
-                        "Updated database entry for product: %d!" % product_id)
+                    cur.execute("UPDATE product SET (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) = (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE id=%s",
+                                (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None), image_id))
+                    logger.info("Updated database entry for product: %d!" % product_id)
 
                 FirmwarePipeline.database.commit()
             except BaseException as e:
