@@ -16,11 +16,11 @@ class FirmwarePipeline(FilesPipeline):
 
     def __init__(self, db_url):
         database = psycopg2.connect(database="firmware", user="firmadyne",
-                                    password="firmadyne", host="127.0.0.1", port=5400) if db_url else None
+                                    password="firmadyne", host="127.0.0.1", port=5432) if db_url else None
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(self.db_url=crawler.settings.get("SQL_SERVER"))
+        return cls(db_url=crawler.settings.get("SQL_SERVER"))
 
     # overrides function from FilesPipeline
     def file_path(self, request, response=None, info=None):
