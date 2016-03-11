@@ -21,4 +21,4 @@ To run a specific scraper, e.g. `dlink`:
 
 To run all scrapers with maximum 4 in parallel, using [GNU Parallel](https://www.gnu.org/software/parallel/):
 
-```parallel -j 4 scrapy crawl ::: `for i in ./scraper/spiders/*.py; do basename ${i%.*}; done` ```
+```parallel -j 4 scrapy crawl ::: `for i in ./firmware/spiders/*.py; do basename ${i%.*}; done` ```
