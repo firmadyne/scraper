@@ -12,10 +12,10 @@ Dependencies
 Usage
 =====
 
-Configure the `scrapy/settings.py` file, including whether metadata about
-downloaded firmware should be inserted into a SQL server.
+1. Configure the `firmware/settings.py` file. Comment out `SQL_SERVER` if metadata about
+downloaded firmware should not be inserted into a SQL server.
 
-To run a specific scraper, e.g. `dlink`:
+2. To run a specific scraper, e.g. `dlink`:
 
 `scrapy crawl dlink`
 
