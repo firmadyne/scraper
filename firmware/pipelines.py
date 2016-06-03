@@ -11,28 +11,16 @@ import urllib
 logger = logging.getLogger(__name__)
 
 class FirmwarePipeline(FilesPipeline):
-    def __init__(self, store_uri, download_func=None, db_url=None):
-        if not store_uri:
-            raise NotConfigured
-        self.store = self._get_store(store_uri)
-
-        if db_url:
+    def __init__(self, store_uri, download_func=None, settings=None):
+        if settings and "SQL_SERVER" in settings:
             import psycopg2
             self.database = psycopg2.connect(database="firmware", user="firmadyne",
-                                             password="firmadyne", host="127.0.0.1",
+                                             password="firmadyne", host=settings["SQL_SERVER"],
                                              port=5432)
         else:
             self.database = None
 
-        super(FilesPipeline, self).__init__(download_func=download_func)
-
-    @classmethod
-    def from_settings(cls, settings):
-        cls.FILES_URLS_FIELD = settings.get('FILES_URLS_FIELD', cls.DEFAULT_FILES_URLS_FIELD)
-        cls.FILES_RESULT_FIELD = settings.get('FILES_RESULT_FIELD', cls.DEFAULT_FILES_RESULT_FIELD)
-        cls.EXPIRES = settings.getint('FILES_EXPIRES', 90)
-        store_uri = settings['FILES_STORE']
-        return cls(store_uri, download_func=None, db_url=settings.get("SQL_SERVER"))
+        super(FilesPipeline, self).__init__()
 
     # overrides function from FilesPipeline
     def file_path(self, request, response=None, info=None):

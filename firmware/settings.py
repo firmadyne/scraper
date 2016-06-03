@@ -21,4 +21,4 @@ DOWNLOAD_WARNSIZE = 0
 ROBOTSTXT_OBEY = False
 USER_AGENT = "FirmwareBot/1.0 (+https://github.com/firmadyne/scraper)"
 
-SQL_SERVER = "127.0.0.1"
+#SQL_SERVER = "127.0.0.1"
