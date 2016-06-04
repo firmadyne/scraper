@@ -12,6 +12,14 @@ logger = logging.getLogger(__name__)
 
 class FirmwarePipeline(FilesPipeline):
     def __init__(self, store_uri, download_func=None, settings=None):
+        if not store_uri:
+            raise NotConfigured
+
+        if isinstance(settings, dict) or settings is None:
+            settings = Settings(settings)
+
+        self.store = self._get_store(store_uri)
+
         if settings and "SQL_SERVER" in settings:
             import psycopg2
             self.database = psycopg2.connect(database="firmware", user="firmadyne",
@@ -20,7 +28,16 @@ class FirmwarePipeline(FilesPipeline):
         else:
             self.database = None
 
-        super(FilesPipeline, self).__init__()
+        super(FilesPipeline, self).__init__(download_func=download_func)
+
+    @classmethod
+    def from_settings(cls, settings):
+        store_uri = settings['FILES_STORE']
+        cls.expires = settings.getint('FILES_EXPIRES')
+        cls.files_urls_field = settings.get('FILES_URLS_FIELD')
+        cls.files_result_field = settings.get('FILES_RESULT_FIELD')
+
+        return cls(store_uri, settings=settings)
 
     # overrides function from FilesPipeline
     def file_path(self, request, response=None, info=None):
@@ -57,17 +74,17 @@ class FirmwarePipeline(FilesPipeline):
             raise DropItem("Filtered path type: %s" % url.path)
 
         # generate list of url's to download
-        item[self.FILES_URLS_FIELD] = [item[x]
+        item[self.files_urls_field] = [item[x]
                                        for x in ["mib", "url"] if x in item]
 
         # pass vendor so we can generate the correct file path and name
-        return [Request(x, meta={"ftp_user": "anonymous", "ftp_password": "chrome@example.com", "vendor": item["vendor"]}) for x in item[self.FILES_URLS_FIELD]]
+        return [Request(x, meta={"ftp_user": "anonymous", "ftp_password": "chrome@example.com", "vendor": item["vendor"]}) for x in item[self.files_urls_field]]
 
     # overrides function from FilesPipeline
     def item_completed(self, results, item, info):
-        item[self.FILES_RESULT_FIELD] = []
-        if isinstance(item, dict) or self.FILES_RESULT_FIELD in item.fields:
-            item[self.FILES_RESULT_FIELD] = [x for ok, x in results if ok]
+        item[self.files_result_field] = []
+        if isinstance(item, dict) or self.files_result_field in item.fields:
+            item[self.files_result_field] = [x for ok, x in results if ok]
 
         if self.database:
             try:
