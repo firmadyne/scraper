@@ -28,8 +28,7 @@ class FirmwarePipeline(FilesPipeline):
         else:
             self.database = None
 
-        super(FilesPipeline, self).__init__(download_func=download_func)
-
+        super(FirmwarePipeline, self).__init__(store_uri, download_func,settings)
     @classmethod
     def from_settings(cls, settings):
         store_uri = settings['FILES_STORE']
