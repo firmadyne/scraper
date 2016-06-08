@@ -12,14 +12,6 @@ logger = logging.getLogger(__name__)
 
 class FirmwarePipeline(FilesPipeline):
     def __init__(self, store_uri, download_func=None, settings=None):
-        if not store_uri:
-            raise NotConfigured
-
-        if isinstance(settings, dict) or settings is None:
-            settings = Settings(settings)
-
-        self.store = self._get_store(store_uri)
-
         if settings and "SQL_SERVER" in settings:
             import psycopg2
             self.database = psycopg2.connect(database="firmware", user="firmadyne",
