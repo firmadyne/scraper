@@ -6,7 +6,6 @@ metadata from supported device vendor websites.
 
 Dependencies
 ============
-* [psycopg2](http://initd.org/psycopg/)
 * [scrapy](http://scrapy.org/)
 
 Usage
