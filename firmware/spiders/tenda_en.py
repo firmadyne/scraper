@@ -1,3 +1,4 @@
+#coding:utf-8
 from scrapy import Spider
 from scrapy.http import Request
 
@@ -7,65 +8,51 @@ from firmware.loader import FirmwareLoader
 import json
 import urlparse
 
-
 class TendaENSpider(Spider):
     name = "tenda_en"
     vendor = "tenda"
-    allowed_domains = ["tenda.cn"]
-    start_urls = ["http://www.tenda.cn/en/services/download.html"]
+    allowed_domains = ["tendacn.com"]
+    start_urls = ["http://www.tendacn.com/en/service/download-cata-11-1.html"]
+    url = "http://www.tendacn.com/en/service/download-cata-11-{}.html"
 
     def parse(self, response):
-        for cid in response.xpath(
-                "//div[@class='download_main_list']//li[@data-level='1']/@id").extract():
+        for page in response.xpath("//div[@class='next-page']/a/text()").extract():
             yield Request(
-                url=urlparse.urljoin(
-                    response.url, "../ashx/CategoryList.ashx?parentCategoryId=%s" % cid),
+                url=self.url.format(page),
                 headers={"Referer": response.url,
                          "X-Requested-With": "XMLHttpRequest"},
-                callback=self.parse_json)
-
-    def parse_json(self, response):
-        json_response = json.loads(response.body_as_unicode())
-        for entry in json_response:
-            if "PC_Level" in entry:
-                if entry["PC_Level"] == "1" or entry["PC_Level"] == "2":
-                    yield Request(
-                        url=urlparse.urljoin(
-                            response.url, "CategoryList.ashx?parentCategoryId=%s" % entry["ID"]),
-                        headers={"Referer": response.url,
-                                 "X-Requested-With": "XMLHttpRequest"},
-                        callback=self.parse_json)
-                else:
-                    yield Request(
-                        url=urlparse.urljoin(
-                            response.url, "ProductList.ashx?categoryId=%s" % entry["ID"]),
-                        headers={"Referer": response.url,
-                                 "X-Requested-With": "XMLHttpRequest"},
-                        callback=self.parse_json)
-            elif "PRO_Name" in entry:
-                yield Request(
-                    url=urlparse.urljoin(
-                        response.url, "../services/downlist-%s.html" % entry["ID"]),
-                    meta={"product": entry["PRO_Model"]},
-                    headers={"Referer": response.url},
-                    callback=self.parse_product)
+                callback=self.parse_product)
 
     def parse_product(self, response):
-        for i in range(0, len(response.xpath("//ul[@id='normaltab2']//a"))):
-            if "firmware" in "".join(response.xpath(
-                    "//ul[@id='normaltab2']/li[%d]/a//text()" % (i + 1)).extract()).lower():
-                for entry in response.xpath(
-                        "//div[@id='normalcon2']/div[%d]//table/tr[1]" % (i + 1)):
-                    version = entry.xpath("./td[2]//text()").extract()
-                    date = entry.xpath("./td[4]//text()").extract()
-                    href = entry.xpath("./td[5]//a/@href").extract()[0]
+        for a in response.xpath("//div[@id='mainbox']//dd/a"):
+            url = a.xpath("./@href").extract()[0]
+            title = a.xpath("./text()").extract()[0]
+            description = title
 
-                    item = FirmwareLoader(
-                        item=FirmwareImage(), response=response, date_fmt=["%Y-%m-%d"])
-                    item.add_value(
-                        "version", FirmwareLoader.find_version_period(version))
-                    item.add_value("url", href)
-                    item.add_value("date", item.find_date(date))
-                    item.add_value("product", response.meta["product"])
-                    item.add_value("vendor", self.vendor)
-                    yield item.load_item()
+            items = title.split(' ')
+            product = items[0]
+            version = items[-1]
+
+            #FH456V1.0 Firmware V10.1.1.1_EN
+            #E101（V2.0） Firmware V1.10.0.1_EN
+            #G3(V2.0） Firmware V2.0.0.1_EN
+            #O3 Firmware V1.0.0.3_EN
+            #i6 Firmware V1.0.0.9(3857)_EN
+            import re
+            p = ur'^(?P<product>([a-uw-zA-UW-Z0-9])+)[\(\uff08]?(V\d\.0)?'
+            try:
+                ret = re.search(p, items[0].decode('utf-8'))
+
+                if ret:
+                    product = ret.group('product')
+            except:
+                product = item[0]
+
+            item = FirmwareLoader(
+                item=FirmwareImage(), response=response)
+            item.add_value(
+                "version", version)
+            item.add_value("url", url)
+            item.add_value("product", product)
+            item.add_value("vendor", self.vendor)
+            yield item.load_item()
