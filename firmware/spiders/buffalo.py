@@ -1,5 +1,5 @@
 from scrapy import Spider
-from scrapy.http import FormRequest
+from scrapy.http import Request
 
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
@@ -9,38 +9,34 @@ import json
 class BuffaloSpider(Spider):
     name = "buffalo"
     allowed_domains = ["buffalotech.com", "cdn.cloudfiles.mosso.com"]
-    start_urls = ["http://www.buffalotech.com/support-and-downloads/downloads"]
+    start_urls = ["http://www.buffalotech.com/products/category/wireless-networking"]
 
     def parse(self, response):
-        script = ''.join(response.xpath("//div[@id='page_stuff']/script/text()").extract()).split('\"')
+        for href in response.xpath("//article/div/a/@href").extract():
+            yield Request(
+                url=href,
+                headers={"Referer": response.url},
+                callback=self.parse_product)
 
-        for product in script:
-            if ',' not in product and ' ' not in product:
-                model = product.replace("\\", "")
-
-                yield FormRequest.from_response(response,
-                                                formname="form_downloads_search",
-                                                formdata={"search_model_number": model},
-                                                meta={"product": model},
-                                                headers={"Referer": response.url, "X-Requested-With": "XMLHttpRequest"},
-                                                callback=self.parse_product)
 
     def parse_product(self, response):
-        json_response = json.loads(response.body_as_unicode())
+        
+        #<h3 class="firm">Firmware</h3>
+        if response.xpath('//h3[@class="firm"]').extract():
+            for tr in response.xpath('//*[@id="tab-downloads"]/table[1]/tbody/tr'):
+                print tr.extract()
+                url = tr.xpath("./td[2]/a/@href").extract()[0]
+                date = tr.xpath("./td[4]/text()").extract()[0]
+                version = tr.xpath("./td[5]/text()").extract()[0]
+                description = tr.xpath("./td[7]/text()").extract()[0]
+                product = url.split('-')[0]
 
-        if json_response["success"]:
-            for prod in json_response["product_downloads"]:
-                product = json_response["product_downloads"][prod]
-                for link in product.get("downloads", {}).get(
-                        "69", {}).get("files", {}):
-
-                    item = FirmwareLoader(item=FirmwareImage(),
-                                          response=response,
-                                          date_fmt=["%Y-%m-%d"])
-                    item.add_value("version", link["version"])
-                    item.add_value("date", link["date"])
-                    item.add_value("description", link["notes"])
-                    item.add_value("url", link["link_url"])
-                    item.add_value("product", response.meta["product"])
-                    item.add_value("vendor", self.name)
-                    yield item.load_item()
+                item = FirmwareLoader(item=FirmwareImage(),
+                                      response=response)
+                                      
+                item.add_value("version", version)
+                item.add_value("description", description)
+                item.add_value("url", url)
+                item.add_value("product", product)
+                item.add_value("vendor", self.name)
+                yield item.load_item()
