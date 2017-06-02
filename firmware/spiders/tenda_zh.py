@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*
-
+#coding:utf-8
+#note: 官网bug，升级软件栏目只能打开一页
 from scrapy import Spider
 from scrapy.http import Request
 
@@ -9,71 +9,39 @@ from firmware.loader import FirmwareLoader
 import json
 import urlparse
 
-
 class TendaZHSpider(Spider):
     name = "tenda_zh"
     vendor = "tenda"
     allowed_domains = ["tenda.com.cn"]
-    start_urls = ["http://www.tenda.com.cn/services/download.html"]
+    start_urls = ["http://www.tenda.com.cn/service/download-cata-11.html"]
+    base_url = "http://www.tenda.com.cn/{}"
 
     def parse(self, response):
-        for href in response.xpath(
-                "//div[@class='nav-drop']//a/@href").extract():
-            cid = href[href.rfind("-") + 1: href.rfind(".html")]
-            if cid.isdigit():
-                yield Request(
-                    url=urlparse.urljoin(
-                        response.url, "../ashx/CategoryList.ashx?parentCategoryId=%s" % (cid)),
-                    headers={"Referer": response.url,
-                             "X-Requested-With": "XMLHttpRequest"},
-                    callback=self.parse_json)
+        for a in response.xpath("//dd/a"):
+            url = a.xpath("./@href").extract()[0]
+            text = a.xpath("./text()").extract()[0]
 
-    def parse_json(self, response):
-        json_response = json.loads(response.body_as_unicode())
-        for entry in json_response:
-            if "PC_Level" in entry:
-                if entry["PC_Level"] == "1" or entry["PC_Level"] == "2":
-                    yield Request(
-                        url=urlparse.urljoin(
-                            response.url, "CategoryList.ashx?parentCategoryId=%s" % entry["ID"]),
-                        headers={"Referer": response.url,
-                                 "X-Requested-With": "XMLHttpRequest"},
-                        callback=self.parse_json)
-                else:
-                    yield Request(
-                        url=urlparse.urljoin(
-                            response.url, "ProductList.ashx?categoryId=%s" % entry["ID"]),
-                        headers={"Referer": response.url,
-                                 "X-Requested-With": "XMLHttpRequest"},
-                        callback=self.parse_json)
-            elif "PRO_Name" in entry:
-                yield Request(
-                    url=urlparse.urljoin(
-                        response.url, "../services/downlist-%s.html" % entry["ID"]),
-                    meta={"product": entry["PRO_Model"]},
-                    headers={"Referer": response.url},
-                    callback=self.parse_product)
+            items = text.split(u'升级软件')
+            version = items[-1].strip()
+            product = items[0].strip().split(u'（')[0].split(' ')[0]
+
+            yield Request(
+                url=self.base_url.format(url),
+                headers={"Referer": response.url},
+                meta={
+                    "product":product,
+                    "version":version,
+                },
+                callback=self.parse_product)
 
     def parse_product(self, response):
-        for section in response.xpath("//ul[@id='tab_conbox']/li"):
-            if u"升级软件" in "".join(section.xpath("./h3//text()").extract()):
-                for entry in section.xpath(".//dd/a"):
-                    text = entry.xpath(".//text()").extract()
-                    href = entry.xpath("./@href").extract()[0]
-
-                    desc = text[0]
-                    # reverse text because hw version can come before version
-                    # e.g. "FH330升级软件（V1.0） V1.0.0.24_CN"
-                    if len(text) == 1:
-                        text = text[0].split()
-                        text.reverse()
-
-                    item = FirmwareLoader(
-                        item=FirmwareImage(), response=response)
-                    item.add_value(
-                        "version", FirmwareLoader.find_version_period(text))
-                    item.add_value("url", href)
-                    item.add_value("product", response.meta["product"])
-                    item.add_value("description", desc)
-                    item.add_value("vendor", self.vendor)
-                    yield item.load_item()
+        url = response.xpath("//div[@class='thumbnail']//a/@href").extract()[0]
+            
+        item = FirmwareLoader(
+            item=FirmwareImage(), response=response)
+        item.add_value(
+            "version", response.meta['version'])
+        item.add_value("url", url)
+        item.add_value("product", response.meta['product'])
+        item.add_value("vendor", self.vendor)
+        yield item.load_item()
