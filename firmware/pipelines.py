@@ -7,20 +7,23 @@ import hashlib
 import logging
 import urlparse
 import urllib
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
+def init_database():
+    conn = sqlite3.connect(database="firmware.db")
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS brand (id INTEGER PRIMARY KEY, name TEXT);")
+    cur.execute("CREATE TABLE IF NOT EXISTS image (id INTEGER PRIMARY KEY, filename TEXT, description TEXT NULL, brand_id INTEGER, hash TEXT);")
+    cur.execute("CREATE TABLE IF NOT EXISTS product (id INTEGER PRIMARY KEY, iid INTEGER, url TEXT, mib_filename TEXT, mib_url TEXT NULL, mib_hash TEXT, sdk_filename TEXT, sdk_url TEXT NULL, sdk_hash TEXT, product TEXT NULL, version TEXT NULL, build TEXT NULL, date TEXT);")
+    return conn
+
 class FirmwarePipeline(FilesPipeline):
     def __init__(self, store_uri, download_func=None, settings=None):
-        if settings and "SQL_SERVER" in settings:
-            import psycopg2
-            self.database = psycopg2.connect(database="firmware", user="firmadyne",
-                                             password="firmadyne", host=settings["SQL_SERVER"],
-                                             port=5432)
-        else:
-            self.database = None
-
+        self.database = init_database()
         super(FirmwarePipeline, self).__init__(store_uri, download_func,settings)
+
     @classmethod
     def from_settings(cls, settings):
         store_uri = settings['FILES_STORE']
@@ -77,6 +80,7 @@ class FirmwarePipeline(FilesPipeline):
         if isinstance(item, dict) or self.files_result_field in item.fields:
             item[self.files_result_field] = [x for ok, x in results if ok]
 
+
         if self.database:
             try:
                 cur = self.database.cursor()
@@ -96,25 +100,29 @@ class FirmwarePipeline(FilesPipeline):
                     return item
 
                 # attempt to find a matching image_id
-                cur.execute("SELECT id FROM image WHERE hash=%s",
-                            (status["url"]["checksum"], ))
+                cur.execute("SELECT id FROM image WHERE hash=(?)",
+                            (status["url"]["checksum"],))
                 image_id = cur.fetchone()
 
                 if not image_id:
-                    cur.execute("SELECT id FROM brand WHERE name=%s", (item["vendor"], ))
+                    cur.execute("SELECT id FROM brand WHERE name=(?)", (item["vendor"],))
                     brand_id = cur.fetchone()
 
                     if not brand_id:
-                        cur.execute("INSERT INTO brand (name) VALUES (%s) RETURNING id", (item["vendor"], ))
-                        brand_id = cur.fetchone()
+                        cur.execute("INSERT INTO brand (name) VALUES (?)", (item["vendor"],))
+                        cur.execute("SELECT last_insert_rowid()")
+                        brand_id = cur.fetchone()[0]
                         logger.info("Inserted database entry for brand: %d!" % brand_id)
-
-                    cur.execute("INSERT INTO image (filename, description, brand_id, hash) VALUES (%s, %s, %s, %s) RETURNING id",
+                    else:
+                        brand_id = brand_id[0]
+                    cur.execute("INSERT INTO image (filename, description, brand_id, hash) VALUES (?, ?, ?, ?)",
                                 (status["url"]["path"], item.get("description", None), brand_id, status["url"]["checksum"]))
-                    image_id = cur.fetchone()
+                    cur.execute("SELECT last_insert_rowid()")
+                    image_id = cur.fetchone()[0]
                     logger.info("Inserted database entry for image: %d!" % image_id)
                 else:
-                    cur.execute("SELECT filename FROM image WHERE hash=%s",
+                    image_id = image_id[0]
+                    cur.execute("SELECT filename FROM image WHERE hash=(?)",
                                 (status["url"]["checksum"], ))
                     path = cur.fetchone()
 
@@ -127,22 +135,31 @@ class FirmwarePipeline(FilesPipeline):
                                     status["url"]["path"])
 
                 # attempt to find a matching product_id
-                cur.execute("SELECT id FROM product WHERE iid=%s AND product IS NOT DISTINCT FROM %s AND version IS NOT DISTINCT FROM %s AND build IS NOT DISTINCT FROM %s",
-                            (image_id, item.get("product", None), item.get("version", None), item.get("build", None)))
+                def mk_sql(a, b):
+                    return "EXISTS(SELECT %s INTERSECT SELECT '%s')" % (a, b)
+
+                keys = ['product', 'version', 'build']
+                values = map(lambda x: item.get(x, None), keys)
+                sql = "SELECT id FROM product WHERE iid=(?) AND " + " AND ".join(map(mk_sql, keys, values))
+
+                cur.execute(sql, (image_id,))
                 product_id = cur.fetchone()
 
                 if not product_id:
-                    cur.execute("INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    cur.execute("INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                                 (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None)))
-                    product_id = cur.fetchone()
+                    cur.execute("SELECT last_insert_rowid()")
+                    product_id = cur.fetchone()[0]
                     logger.info(
                         "Inserted database entry for product: %d!" % product_id)
                 else:
-                    cur.execute("UPDATE product SET (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) = (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE id=%s",
+
+                    cur.execute("UPDATE product SET iid=(?), url=(?), mib_filename=(?), mib_url=(?), mib_hash=(?), sdk_filename=(?), sdk_url=(?), sdk_hash=(?), product=(?), version=(?), build=(?), date=(?) WHERE id=(?)",
                                 (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None), image_id))
-                    logger.info("Updated database entry for product: %d!" % product_id)
+                    logger.info("Updated database entry for product: %d!" % product_id[0])
 
                 self.database.commit()
+
             except BaseException as e:
                 self.database.rollback()
                 logger.warning("Database connection exception: %s!" % e)

@@ -7,7 +7,7 @@ ITEM_PIPELINES = {
     "firmware.pipelines.FirmwarePipeline" : 1,
 }
 
-FILES_STORE = "./output/"
+FILES_STORE = "./firmwares/"
 
 AUTOTHROTTLE_ENABLED = True
 AUTOTHROTTLE_START_DELAY = 0
