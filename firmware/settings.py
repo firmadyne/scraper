@@ -3,6 +3,10 @@ BOT_NAME = "firmware"
 SPIDER_MODULES = ["firmware.spiders"]
 NEWSPIDER_MODULE = "scraper.spiders"
 
+DOWNLOAD_HANDLERS = {
+    's3': None,
+}
+
 ITEM_PIPELINES = {
     "firmware.pipelines.FirmwarePipeline" : 1,
 }
