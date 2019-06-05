@@ -36,7 +36,7 @@ class A360Spider(Spider):
             urls = re.findall(p_url, js)
             dates = re.findall(p_date, js)
 
-            for i in xrange(len(products)):
+            for i in range(len(products)):
                 product = products[i]
                 url = urls[i]
                 version = versions[i]
