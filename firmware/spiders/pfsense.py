@@ -5,9 +5,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import os
-import urlparse
-
-
+from urllib.parse import urljoin
 class PfSenseSpider(Spider):
     name = "pfsense"
     allowed_domains = ["pfsense.org"]
@@ -22,7 +20,7 @@ class PfSenseSpider(Spider):
                 continue
             elif href.endswith('/'):
                 yield Request(
-                    url=urlparse.urljoin(response.url, href),
+                    url=urljoin(response.url, href),
                     headers={"Referer": response.url},
                     callback=self.parse)
             elif href.endswith(".gz") and ".iso" not in href:

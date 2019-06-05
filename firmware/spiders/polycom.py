@@ -4,14 +4,17 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
+from urllib.parse import urljoin, urlparse
 
 
 class PolycomSpider(Spider):
     name = "polycom"
     allowed_domains = ["polycom.com"]
-    start_urls = ["http://support.polycom.com/PolycomService/support/us/support/video/index.html", "http://support.polycom.com/PolycomService/support/us/support/voice/index.html", "http://support.polycom.com/PolycomService/support/us/support/network/index.html",
-                  "http://support.polycom.com/PolycomService/support/us/support/cloud_hosted_solutions/index.html", "http://support.polycom.com/PolycomService/support/us/support/strategic_partner_solutions/index.html"]
+    start_urls = ["http://support.polycom.com/PolycomService/support/us/support/video/index.html",
+                  "http://support.polycom.com/PolycomService/support/us/support/voice/index.html",
+                  "http://support.polycom.com/PolycomService/support/us/support/network/index.html",
+                  "http://support.polycom.com/PolycomService/support/us/support/cloud_hosted_solutions/index.html",
+                  "http://support.polycom.com/PolycomService/support/us/support/strategic_partner_solutions/index.html"]
 
     download = "/PolycomService/support/us"
 
@@ -45,15 +48,16 @@ class PolycomSpider(Spider):
                 href = entry.xpath("./a/@href").extract()[0].strip()
                 date = entry.xpath("./span//text()").extract()
 
-                path = urlparse.urlparse(href).path
+                path = urlparse(href).path
 
                 if any(x in text.lower() for x in ["end user license agreement", "eula", "release notes",
-                                                   "mac os", "windows", "guide", "(pdf)", "sample"]) or href.endswith(".pdf"):
+                                                   "mac os", "windows", "guide", "(pdf)", "sample"]) or href.endswith(
+                    ".pdf"):
                     continue
 
                 elif any(path.endswith(x) for x in [".htm", ".html"]) or "(html)" in text.lower():
                     yield Request(
-                        url=urlparse.urljoin(
+                        url=urljoin(
                             response.url, PolycomSpider.fix_url(href)),
                         meta={"product": response.meta["product"] if "product" in response.meta else text,
                               "date": date, "version": FirmwareLoader.find_version_period([text]), "description": text},

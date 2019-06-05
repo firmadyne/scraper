@@ -5,9 +5,6 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-import json
-
 class A360Spider(Spider):
     name = "360"
     #allowed_domains = ["luyou.360.cn"]
@@ -23,8 +20,8 @@ class A360Spider(Spider):
     def parse_product(self, response):
         js = response.text
         if js.startswith("var commonInfo"):
-            print response.url
-            print js
+            print(response.url)
+            print(js)
 
             p_product = u"id:\"(?P<product>.*?)\""
             p_description = u"title:\"(?P<description>.*?)\""
@@ -33,13 +30,13 @@ class A360Spider(Spider):
             p_date = u"updateDate:\"(?P<date>.*?)\""
 
             import re
-            products = re.findall(p_version, js)
+            products = re.findall(p_product, js)
             descriptions = re.findall(p_description, js)
             versions = re.findall(p_version, js)
             urls = re.findall(p_url, js)
             dates = re.findall(p_date, js)
 
-            for i in xrange(len(products)):
+            for i in range(len(products)):
                 product = products[i]
                 url = urls[i]
                 version = versions[i]
@@ -49,6 +46,7 @@ class A360Spider(Spider):
                 item = FirmwareLoader(
                             item=FirmwareImage(), response=response)
                 item.add_value("url", url)
+                item.add_value("version", version)
                 item.add_value("product", product)
                 item.add_value("description", description)
                 item.add_value("date", date)

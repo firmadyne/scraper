@@ -5,7 +5,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import json
-import urlparse
+from urllib.parse import urljoin
 
 
 class DLinkSpider(Spider):
@@ -22,7 +22,7 @@ class DLinkSpider(Spider):
     def parse(self, response):
         for entry in response.xpath("//tr/td[1]/a/@alt").extract():
             yield Request(
-                url=urlparse.urljoin(
+                url=urljoin(
                     response.url, "ProductInfo.aspx?m=%s" % entry),
                 headers={"Referer": response.url},
                 meta={"product": entry},
@@ -35,7 +35,7 @@ class DLinkSpider(Spider):
 
             if val:
                 yield Request(
-                    url=urlparse.urljoin(
+                    url=urljoin(
                         response.url, "/ajax/ajax.ashx?action=productfile&ver=%s" % val),
                     headers={"Referer": response.url,
                              "X-Requested-With": "XMLHttpRequest"},
@@ -49,8 +49,7 @@ class DLinkSpider(Spider):
 
         for entry in reversed(json_response["item"]):
             for file in reversed(entry["file"]):
-                if file["filetypename"].lower() == "firmware" or file[
-                        "isFirmF"] == "1":
+                if file["filetypename"].lower() == "firmware" or file["isFirmF"] == "1":
                     item = FirmwareLoader(item=FirmwareImage(),
                                           response=response,
                                           date_fmt=["%m/%d/%y"])

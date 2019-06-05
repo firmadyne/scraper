@@ -6,8 +6,7 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-
+from urllib.parse import urljoin
 class TPLinkZHSpider(Spider):
     name = "tp-link_zh"
     vendor = "tp-link"
@@ -19,13 +18,13 @@ class TPLinkZHSpider(Spider):
         for product in response.xpath(
                 "//table[@id='mainlist']//a/@href").extract():
             yield Request(
-                url=urlparse.urljoin(response.url, product),
+                url=urljoin(response.url, product),
                 headers={"Referer": response.url},
                 callback=self.parse_product)
 
         for page in response.xpath("//div[@id='paging']/a/@href").extract():
             yield Request(
-                url=urlparse.urljoin(response.url, page),
+                url=urljoin(response.url, page),
                 headers={"Referer": response.url},
                 callback=self.parse)
 

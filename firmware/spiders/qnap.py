@@ -4,9 +4,7 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-
-
+from urllib.parse import urljoin
 class QNAPSpider(Spider):
     name = "qnap"
     allowed_domains = ["qnap.com"]
@@ -14,7 +12,7 @@ class QNAPSpider(Spider):
 
     def parse(self, response):
         yield Request(
-            url=urlparse.urljoin(
+            url=urljoin(
                 response.url, "/i/useng/product_x_down/ajax/get_module.php"),
             headers={"Referer": response.url},
             callback=self.parse_products)
@@ -27,7 +25,7 @@ class QNAPSpider(Spider):
             if value:
                 yield Request(
                     # firmware = 1, utility = 4, etc
-                    url=urlparse.urljoin(
+                    url=urljoin(
                         response.url, "/i/useng/product_x_down/product_down.php?II=%s&cat_choose=%d" % (value[0], 1)),
                     meta={"product": text[0]},
                     callback=self.parse_product)

@@ -4,8 +4,7 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-
+from urllib.parse import urljoin
 class UbloxSpider(Spider):
     name = "ublox"
     allowed_domains = ["u-blox.com"]

@@ -4,8 +4,7 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-
+from urllib.parse import urljoin
 class XeroxSpider(Spider):
     name = "xerox"
     allowed_domains = ["xerox.com"]
@@ -17,7 +16,7 @@ class XeroxSpider(Spider):
                 "//div[@class='productResults a2z']//a/@href").extract():
             if "downloads" in href:
                 yield Request(
-                    url=urlparse.urljoin(response.url, href),
+                    url=urljoin(response.url, href),
                     headers={"Referer": response.url},
                     callback=self.parse_download)
 

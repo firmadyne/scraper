@@ -6,8 +6,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import json
-import urlparse
-
+from urllib.parse import urljoin
 class TendaENSpider(Spider):
     name = "tenda_en"
     vendor = "tenda"
@@ -39,7 +38,7 @@ class TendaENSpider(Spider):
             #O3 Firmware V1.0.0.3_EN
             #i6 Firmware V1.0.0.9(3857)_EN
             import re
-            p = ur'^(?P<product>([a-uw-zA-UW-Z0-9])+)[\(\uff08]?(V\d\.0)?'
+            p = r'^(?P<product>([a-uw-zA-UW-Z0-9])+)[\(\uff08]?(V\d\.0)?'
             try:
                 ret = re.search(p, items[0].decode('utf-8'))
 

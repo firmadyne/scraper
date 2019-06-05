@@ -5,7 +5,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import re
-import urlparse
+from urllib.parse import urljoin
 
 
 class ActiontecSpider(Spider):
@@ -23,7 +23,7 @@ class ActiontecSpider(Spider):
                 product = actual.group(1).replace("(", "").replace(")", "")
 
             yield Request(
-                url=urlparse.urljoin(
+                url=urljoin(
                     response.url, link.xpath(".//@href").extract()[0]),
                 headers={"Referer": response.url},
                 meta={"product": product},
