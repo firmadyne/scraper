@@ -4,9 +4,7 @@ from scrapy.http import FormRequest
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-
-
+from urllib.parse import urljoin
 class MikrotikSpider(Spider):
     name = "mikrotik"
     allowed_domains = ["mikrotik.com"]

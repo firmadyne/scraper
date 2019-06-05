@@ -4,7 +4,7 @@ from scrapy.loader.processors import Identity, MapCompose, TakeFirst
 import datetime
 import re
 import string
-import urlparse
+from urllib.parse import urlparse, urljoin
 
 
 class FirmwareLoader(ItemLoader):
@@ -38,18 +38,18 @@ class FirmwareLoader(ItemLoader):
             fmt = "(" + re.escape(fmt).replace("\%b", "[a-zA-Z]{3}").replace("\%B", "[a-zA-Z]+").replace(
                 "\%m", "\d{1,2}").replace("\%d", "\d{1,2}").replace("\%y", "\d{2}").replace("\%Y", "\d{4}") + ")"
             match = re.search(fmt, "".join(text).strip())
-            res = filter(lambda x: x, match.groups()) if match else None
+            res = list(filter(lambda x: x, match.groups())) if match else None
 
             if res:
                 return res[0]
         return None
 
     def clean(s):
-        return filter(lambda x: x in string.printable, s).replace("\r", "").replace("\n", "").replace(u"\xa0", " ").strip()
+        return ''.join(list(filter(lambda x: x in string.printable, s))).replace("\r", "").replace("\n", "").replace(u"\xa0", " ").strip()
 
     def fix_url(url, loader_context):
-        if not urlparse.urlparse(url).netloc:
-            return urlparse.urljoin(loader_context.get("response").url, url)
+        if not urlparse(url).netloc:
+            return urljoin(loader_context.get("response").url, url)
         return url
 
     def parse_date(date, loader_context):

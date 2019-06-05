@@ -5,9 +5,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import json
-import urlparse
-
-
+from urllib.parse import urljoin
 class UbiquitiSpider(Spider):
     name = "ubiquiti"
     allowed_domains = ["ubnt.com"]
@@ -17,7 +15,7 @@ class UbiquitiSpider(Spider):
         for platform in response.xpath(
                 "//a[@data-ga-category='download-nav']/@data-slug").extract():
             yield Request(
-                url=urlparse.urljoin(response.url, "?group=%s" % (platform)),
+                url=urljoin(response.url, "?group=%s" % (platform)),
                 headers={"Referer": response.url,
                          "X-Requested-With": "XMLHttpRequest"},
                 callback=self.parse_json)
@@ -28,7 +26,7 @@ class UbiquitiSpider(Spider):
         if "products" in json_response:
             for product in json_response["products"]:
                 yield Request(
-                    url=urlparse.urljoin(
+                    url=urljoin(
                         response.url, "?product=%s" % (product["slug"])),
                     headers={"Referer": response.url,
                              "X-Requested-With": "XMLHttpRequest"},
@@ -54,7 +52,7 @@ class UbiquitiSpider(Spider):
 
                     if entry["sdk__id"]:
                         yield Request(
-                            url=urlparse.urljoin(
+                            url=urljoin(
                                 response.url, "?gpl=%s&eula=True" % (entry["sdk__id"])),
                             headers={"Referer": response.url,
                                      "X-Requested-With": "XMLHttpRequest"},

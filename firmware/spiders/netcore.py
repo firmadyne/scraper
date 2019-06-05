@@ -6,9 +6,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import re
-import urlparse
-
-
+from urllib.parse import urljoin
 class NetcoreSpider(Spider):
     name = "netcore"
     allowed_domains = ["netcoretec.com"]

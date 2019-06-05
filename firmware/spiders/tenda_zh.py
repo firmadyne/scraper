@@ -7,8 +7,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import json
-import urlparse
-
+from urllib.parse import urljoin
 class TendaZHSpider(Spider):
     name = "tenda_zh"
     vendor = "tenda"

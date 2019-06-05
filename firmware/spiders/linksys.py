@@ -4,8 +4,7 @@ from scrapy.http import Request, HtmlResponse
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urlparse
-
+from urllib.parse import urljoin
 # see: http://www.dd-wrt.com/phpBB2/viewtopic.php?t=145255&postdays=0&postorder=asc&start=0
 # and http://download.modem-help.co.uk/mfcs-L/LinkSys/
 
@@ -18,7 +17,7 @@ class LinksysSpider(Spider):
     def parse(self, response):
         for link in response.xpath("//div[@class='item']//a/@href").extract():
             yield Request(
-                url=urlparse.urljoin(response.url, link),
+                url=urljoin(response.url, link),
                 headers={"Referer": response.url},
                 callback=self.parse_support)
 
@@ -29,7 +28,7 @@ class LinksysSpider(Spider):
 
             if "download" in text.lower():
                 yield Request(
-                    url=urlparse.urljoin(response.url, href),
+                    url=urljoin(response.url, href),
                     meta={"product": response.xpath(
                         "//span[@class='part-number']/text()").extract()[0].replace("SKU", "").strip()},
                     headers={"Referer": response.url},

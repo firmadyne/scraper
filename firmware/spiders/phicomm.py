@@ -5,8 +5,7 @@ from scrapy.http import Request
 
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
-import urlparse
-
+from urllib.parse import urljoin
 class PhicommSpider(Spider):
     name = "phicomm"
     vendor = "phicomm"
@@ -45,7 +44,7 @@ class PhicommSpider(Spider):
     def parse_product(self, response):
         import re
         #/cn/Uploads/files/20161024/K1_V22.4.2.15.bin
-        print response.text
+        print(response.text)
         path = re.findall(u"(/cn/Uploads/files/.*?\.bin)", response.text)[0]
         url = "http://www.phicomm.com/{}".format(path)
 
