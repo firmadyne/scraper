@@ -14,8 +14,8 @@ class OpenWRTSpider(Spider):
 
     def parse(self, response):
         for link in response.xpath("//a"):
-            text = link.xpath("text()").extract()[0]
-            href = link.xpath("@href").extract()[0]
+            text = link.xpath("text()").extract_first()
+            href = link.xpath("@href").extract_first()
 
             yield Request(
                 url=urlparse.urljoin(response.url, href),
@@ -25,8 +25,8 @@ class OpenWRTSpider(Spider):
 
     def parse_url(self, response):
         for link in response.xpath("//a"):
-            text = link.xpath("text()").extract()[0]
-            href = link.xpath("@href").extract()[0]
+            text = link.xpath("text()").extract_first()
+            href = link.xpath("@href").extract_first()
 
             if ".." in href:
                 continue
