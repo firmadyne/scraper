@@ -17,6 +17,10 @@ class OpenWRTSpider(Spider):
             text = link.xpath("text()").extract_first()
             href = link.xpath("@href").extract_first()
 
+            if text is None and href == u"/":
+                # <a href="/"><em>(root)</em></a>
+                continue
+
             yield Request(
                 url=urlparse.urljoin(response.url, href),
                 headers={"Referer": response.url},
@@ -27,6 +31,10 @@ class OpenWRTSpider(Spider):
         for link in response.xpath("//a"):
             text = link.xpath("text()").extract_first()
             href = link.xpath("@href").extract_first()
+
+            if text is None and href == u"/":
+                # <a href="/"><em>(root)</em></a>
+                continue
 
             if ".." in href:
                 continue
