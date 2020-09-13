@@ -5,7 +5,7 @@ from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
 import json
-import urlparse
+import urllib.request, urllib.parse, urllib.error
 
 class TPLinkENSpider(Spider):
     name = "tp-link_en"
@@ -19,7 +19,7 @@ class TPLinkENSpider(Spider):
         for cid in response.xpath(
                 "//select[@id='slcProductCat']//option/@value").extract():
             yield Request(
-                url=urlparse.urljoin(
+                url=urllib.parse.urljoin(
                     self.base_path, "/getMenuList.html?action=getsubcatlist&catid=%s&appPath=us" % cid),
                 meta={"cid": cid},
                 headers={"Referer": response.url,
@@ -32,7 +32,7 @@ class TPLinkENSpider(Spider):
         if json_response:
             for entry in json_response:
                 yield Request(
-                    url=urlparse.urljoin(
+                    url=urllib.parse.urljoin(
                         self.base_path, "/getMenuList.html?action=getsubcatlist&catid=%s&appPath=us" % entry["id"]),
                     meta={"cid": entry["id"]},
                     headers={"Referer": response.url,
@@ -40,7 +40,7 @@ class TPLinkENSpider(Spider):
                     callback=self.parse_json)
         else:
             yield Request(
-                url=urlparse.urljoin(
+                url=urllib.parse.urljoin(
                     self.base_path, "phppage/down-load-model-list.html?showEndLife=false&catid={}&appPath=us".format(response.meta["cid"])),
                 headers={"Referer": response.url,
                          "X-Requested-With": "XMLHttpRequest"},
@@ -52,7 +52,7 @@ class TPLinkENSpider(Spider):
             #description = json_response[0]['title']
             for row in json_response[0]['row']:
                 yield Request(
-                    url = urlparse.urljoin(self.base_path, row['href']),
+                    url = urllib.urljoin(self.base_path, row['href']),
                     meta = {"product": row['model'],
                             },
                     callback = self.parse_product_version)
