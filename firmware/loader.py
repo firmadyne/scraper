@@ -1,5 +1,5 @@
 from scrapy.loader import ItemLoader
-from scrapy.loader.processors import Identity, MapCompose, TakeFirst
+from itemloaders.processors import Identity, MapCompose, TakeFirst
 
 import datetime
 import re
