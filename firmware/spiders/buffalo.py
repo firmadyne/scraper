@@ -7,7 +7,7 @@ from firmware.loader import FirmwareLoader
 class BuffaloSpider(Spider):
     name = "buffalo"
     allowed_domains = ["buffalotech.com", "cdn.cloudfiles.mosso.com"]
-    start_urls = ["http://www.buffalotech.com/products/category/wireless-networking"]
+    start_urls = ["https://www.buffalotech.com/products/category/wireless-networking"]
 
     def parse(self, response):
             yield from response.follow_all(
