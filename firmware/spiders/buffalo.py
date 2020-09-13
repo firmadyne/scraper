@@ -10,10 +10,8 @@ class BuffaloSpider(Spider):
     start_urls = ["http://www.buffalotech.com/products/category/wireless-networking"]
 
     def parse(self, response):
-        for href in response.xpath("//article/div/a/@href").extract():
-            yield Request(
-                url=href,
-                headers={"Referer": response.url},
+            yield from response.follow_all(
+                xpath='//article/div/a',
                 callback=self.parse_product)
 
 
