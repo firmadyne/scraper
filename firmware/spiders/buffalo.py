@@ -4,8 +4,6 @@ from scrapy.http import Request
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import json
-
 class BuffaloSpider(Spider):
     name = "buffalo"
     allowed_domains = ["buffalotech.com", "cdn.cloudfiles.mosso.com"]
