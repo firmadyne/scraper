@@ -31,7 +31,6 @@ class TPLinkENSpider(Spider):
                     item.add_value("category", category)
                     yield item.load_item()
 
-
     def parse_product(self, response):
         self.logger.debug("Parsing %s..." % response.url)
         tmp = response.url.split('/')[-2]
