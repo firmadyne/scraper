@@ -43,7 +43,7 @@ class FirmwarePipeline(FilesPipeline):
         for x in ["vendor", "url"]:
             if x not in item:
                 raise DropItem(
-                    "Missing required field '%s' for item: " % (x, item))
+                    "Missing required field '%s' for item: " % x)
 
         # resolve dynamic redirects in urls
         for x in ["mib", "sdk", "url"]:
