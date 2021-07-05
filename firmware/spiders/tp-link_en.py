@@ -24,7 +24,7 @@ class TPLinkENSpider(Spider):
                 if link[-1] == "/":
                     yield response.follow(link, meta={"category": category, "product":model}, callback=self.parse_product)
                 else:
-                    item = FirmwareLoader(item=FirmwareImage(), date_fmt=["%y-%m-%d"])
+                    item = FirmwareLoader(item=FirmwareImage(), date_fmt=["%Y-%m-%d"])
                     item.add_value("vendor", self.vendor)
                     item.add_value("url", link)
                     item.add_value("product", model)
@@ -49,7 +49,7 @@ class TPLinkENSpider(Spider):
         for firmware in firmwares:
             spans = firmware.css('tr.detail-info span')
             item = FirmwareLoader(
-            item=FirmwareImage(), response=response, date_fmt=["%y-%m-%d"])
+            item=FirmwareImage(), response=response, date_fmt=["%Y-%m-%d"])
             item.add_value("vendor", self.vendor)
             item.add_value("url", firmware.css("a::attr(href)").get())
             item.add_value("date", spans[1].css("::text").get().strip())
@@ -65,7 +65,7 @@ class TPLinkENSpider(Spider):
         self.logger.debug("%s %s: %d gpl source code found." % (response.meta["product"], version, len(gpl_source_codes)))
         for gpl in gpl_source_codes:
             item = FirmwareLoader(
-            item=FirmwareImage(), response=response, date_fmt=["%d/%m/%y"])
+            item=FirmwareImage(), response=response, date_fmt=["%d/%m/%Y"])
             item.add_value("vendor", self.vendor)
             item.add_value("url", gpl.css("a::attr(href)").get())
             item.add_value("product", response.meta["product"])
