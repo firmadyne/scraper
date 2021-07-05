@@ -35,8 +35,8 @@ class FirmwareLoader(ItemLoader):
 
     def find_date(self, text):
         for fmt in self.context.get("date_fmt", []):
-            fmt = "(" + re.escape(fmt).replace("\%b", "[a-zA-Z]{3}").replace("\%B", "[a-zA-Z]+").replace(
-                "\%m", "\d{1,2}").replace("\%d", "\d{1,2}").replace("\%y", "\d{2}").replace("\%Y", "\d{4}") + ")"
+            fmt = "(" + re.escape(fmt).replace("%b", "[a-zA-Z]{3}").replace("%B", "[a-zA-Z]+").replace(
+                 "%m", "\d{1,2}").replace("%d", "\d{1,2}").replace("%y", "\d{2}").replace("%Y", "\d{4}") + ")"
             match = re.search(fmt, "".join(text).strip())
             res = [x for x in match.groups() if x] if match else None
 
