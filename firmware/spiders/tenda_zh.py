@@ -38,7 +38,7 @@ class TendaZHSpider(Spider):
     def parse_product(self, response):
         url = "https:" + response.xpath("//div[@class='onebtn']//a/@href").extract()[0]
         item = FirmwareLoader(
-            item=FirmwareImage(), response=response)
+            item = FirmwareImage(), response = response)
         item.add_value(
             "version", response.meta['version'])
         item.add_value("url", url)
