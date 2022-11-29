@@ -1,5 +1,4 @@
 #coding:utf-8
-#note: 官网bug，升级软件栏目只能打开一页
 from scrapy import Spider
 from scrapy.http import Request
 
@@ -12,31 +11,31 @@ import urllib.request, urllib.parse, urllib.error
 class TendaZHSpider(Spider):
     name = "tenda_zh"
     vendor = "tenda"
-    allowed_domains = ["tenda.com.cn"]
-    start_urls = ["http://www.tenda.com.cn/service/download-cata-11.html"]
-    base_url = "http://www.tenda.com.cn/{}"
+    start_urls = ["https://www.tenda.com.cn/service/download-cata-11.html"]
 
     def parse(self, response):
-        for a in response.xpath("//dd/a"):
-            url = a.xpath("./@href").extract()[0]
-            text = a.xpath("./text()").extract()[0]
-
-            items = text.split('升级软件')
-            version = items[-1].strip()
-            product = items[0].strip().split('（')[0].split(' ')[0]
+        for a in response.xpath("//ul[@class='hotlist  flex']/li/a"):
+            product_url = "https:" + a.xpath("./@href").extract()[0]
+            version = ""
+            v = a.xpath("./span[@class='editons']/text()").extract()
+            if len(v) != 0:
+                version = v[0]
+            product = ""
+            p = a.xpath("./@title").extract()
+            if len(p) != 0:
+                product = p[0]
 
             yield Request(
-                url=self.base_url.format(url),
-                headers={"Referer": response.url},
-                meta={
-                    "product":product,
-                    "version":version,
+                url = product_url,
+                headers = {"Referer": response.url},
+                meta = {
+                    "product": product,
+                    "version": version,
                 },
-                callback=self.parse_product)
+                callback = self.parse_product)
 
     def parse_product(self, response):
-        url = response.xpath("//div[@class='thumbnail']//a/@href").extract()[0]
-            
+        url = "https:" + response.xpath("//div[@class='onebtn']//a/@href").extract()[0]
         item = FirmwareLoader(
             item=FirmwareImage(), response=response)
         item.add_value(
