@@ -11,6 +11,7 @@ import urllib.request, urllib.parse, urllib.error
 class TendaZHSpider(Spider):
     name = "tenda_zh"
     vendor = "tenda"
+    allowed_domains = ["tenda.com.cn"]
     start_urls = ["https://www.tenda.com.cn/service/download-cata-11.html"]
 
     def parse(self, response):
