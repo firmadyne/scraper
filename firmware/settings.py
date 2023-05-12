@@ -8,7 +8,7 @@ DOWNLOAD_HANDLERS = {
 }
 
 ITEM_PIPELINES = {
-    "firmware.pipelines.FirmwarePipeline" : 1,
+    "firmware.pipelines.FirmwarePipeline": 1,
 }
 
 FILES_STORE = "./output/"
@@ -26,3 +26,4 @@ ROBOTSTXT_OBEY = False
 USER_AGENT = "FirmwareBot/1.0 (+https://github.com/firmadyne/scraper)"
 
 #SQL_SERVER = "127.0.0.1"
+FACT_INSTANCE = "<FACT IP>"

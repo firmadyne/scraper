@@ -10,7 +10,7 @@ import urllib.request, urllib.parse, urllib.error
 
 class UbiquitiSpider(Spider):
     name = "ubiquiti"
-    allowed_domains = ["ubnt.com"]
+    allowed_domains = ["ubnt.com", "ui.com"]
     start_urls = ["http://www.ubnt.com/download/"]
 
     def parse(self, response):
