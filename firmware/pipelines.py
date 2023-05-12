@@ -1,6 +1,9 @@
+import json
+
 from scrapy.exceptions import DropItem
 from scrapy.http import Request
 from scrapy.pipelines.files import FilesPipeline
+from firmware.unpacker import Unpacker
 
 import os
 import hashlib
@@ -10,6 +13,7 @@ import urllib.request, urllib.parse, urllib.error
 
 logger = logging.getLogger(__name__)
 
+
 class FirmwarePipeline(FilesPipeline):
     def __init__(self, store_uri, download_func=None, settings=None):
         if settings and "SQL_SERVER" in settings:
@@ -17,10 +21,16 @@ class FirmwarePipeline(FilesPipeline):
             self.database = psycopg2.connect(database="firmware", user="firmadyne",
                                              password="firmadyne", host=settings["SQL_SERVER"],
                                              port=5432)
+        elif settings and "FACT_INSTANCE" in settings:
+            import json
+            self.database = None
+            self.fact_ip = settings["FACT_INSTANCE"]
         else:
             self.database = None
+            self.fact_ip = None
 
-        super(FirmwarePipeline, self).__init__(store_uri, download_func,settings)
+        super(FirmwarePipeline, self).__init__(store_uri, download_func, settings)
+
     @classmethod
     def from_settings(cls, settings):
         store_uri = settings['FILES_STORE']
@@ -59,7 +69,8 @@ class FirmwarePipeline(FilesPipeline):
 
         # check for filtered url types in path
         url = urllib.parse.urlparse(item["url"])
-        if any(url.path.endswith(x) for x in [".pdf", ".php", ".txt", ".doc", ".rtf", ".docx", ".htm", ".html", ".md5", ".sha1", ".torrent"]):
+        if any(url.path.endswith(x) for x in
+               [".pdf", ".php", ".txt", ".doc", ".rtf", ".docx", ".htm", ".html", ".md5", ".sha1", ".torrent"]):
             raise DropItem("Filtered path extension: %s" % url.path)
         elif any(x in url.path for x in ["driver", "utility", "install", "wizard", "gpl", "login"]):
             raise DropItem("Filtered path type: %s" % url.path)
@@ -69,7 +80,9 @@ class FirmwarePipeline(FilesPipeline):
                                        for x in ["mib", "url"] if x in item]
 
         # pass vendor so we can generate the correct file path and name
-        return [Request(x, meta={"ftp_user": "anonymous", "ftp_password": "chrome@example.com", "vendor": item["vendor"]}) for x in item[self.files_urls_field]]
+        return [
+            Request(x, meta={"ftp_user": "anonymous", "ftp_password": "chrome@example.com", "vendor": item["vendor"]})
+            for x in item[self.files_urls_field]]
 
     # overrides function from FilesPipeline
     def item_completed(self, results, item, info):
@@ -97,25 +110,26 @@ class FirmwarePipeline(FilesPipeline):
 
                 # attempt to find a matching image_id
                 cur.execute("SELECT id FROM image WHERE hash=%s",
-                            (status["url"]["checksum"], ))
+                            (status["url"]["checksum"],))
                 image_id = cur.fetchone()
 
                 if not image_id:
-                    cur.execute("SELECT id FROM brand WHERE name=%s", (item["vendor"], ))
+                    cur.execute("SELECT id FROM brand WHERE name=%s", (item["vendor"],))
                     brand_id = cur.fetchone()
 
                     if not brand_id:
-                        cur.execute("INSERT INTO brand (name) VALUES (%s) RETURNING id", (item["vendor"], ))
+                        cur.execute("INSERT INTO brand (name) VALUES (%s) RETURNING id", (item["vendor"],))
                         brand_id = cur.fetchone()
                         logger.info("Inserted database entry for brand: %d!" % brand_id)
 
-                    cur.execute("INSERT INTO image (filename, description, brand_id, hash) VALUES (%s, %s, %s, %s) RETURNING id",
-                                (status["url"]["path"], item.get("description", None), brand_id, status["url"]["checksum"]))
+                    cur.execute(
+                        "INSERT INTO image (filename, description, brand_id, hash) VALUES (%s, %s, %s, %s) RETURNING id",
+                        (status["url"]["path"], item.get("description", None), brand_id, status["url"]["checksum"]))
                     image_id = cur.fetchone()
                     logger.info("Inserted database entry for image: %d!" % image_id)
                 else:
                     cur.execute("SELECT filename FROM image WHERE hash=%s",
-                                (status["url"]["checksum"], ))
+                                (status["url"]["checksum"],))
                     path = cur.fetchone()
 
                     logger.info(
@@ -127,19 +141,28 @@ class FirmwarePipeline(FilesPipeline):
                                     status["url"]["path"])
 
                 # attempt to find a matching product_id
-                cur.execute("SELECT id FROM product WHERE iid=%s AND product IS NOT DISTINCT FROM %s AND version IS NOT DISTINCT FROM %s AND build IS NOT DISTINCT FROM %s",
-                            (image_id, item.get("product", None), item.get("version", None), item.get("build", None)))
+                cur.execute(
+                    "SELECT id FROM product WHERE iid=%s AND product IS NOT DISTINCT FROM %s AND version IS NOT DISTINCT FROM %s AND build IS NOT DISTINCT FROM %s",
+                    (image_id, item.get("product", None), item.get("version", None), item.get("build", None)))
                 product_id = cur.fetchone()
 
                 if not product_id:
-                    cur.execute("INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                                (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None)))
+                    cur.execute(
+                        "INSERT INTO product (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                        (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"],
+                         status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"],
+                         item.get("product", None), item.get("version", None), item.get("build", None),
+                         item.get("date", None)))
                     product_id = cur.fetchone()
                     logger.info(
                         "Inserted database entry for product: %d!" % product_id)
                 else:
-                    cur.execute("UPDATE product SET (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) = (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE id=%s",
-                                (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"], status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"], item.get("product", None), item.get("version", None), item.get("build", None), item.get("date", None), image_id))
+                    cur.execute(
+                        "UPDATE product SET (iid, url, mib_filename, mib_url, mib_hash, sdk_filename, sdk_url, sdk_hash, product, version, build, date) = (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE id=%s",
+                        (image_id, item["url"], status["mib"]["path"], item.get("mib", None), status["mib"]["checksum"],
+                         status["sdk"]["path"], item.get("sdk", None), status["sdk"]["checksum"],
+                         item.get("product", None), item.get("version", None), item.get("build", None),
+                         item.get("date", None), image_id))
                     logger.info("Updated database entry for product: %d!" % product_id)
 
                 self.database.commit()
@@ -151,4 +174,44 @@ class FirmwarePipeline(FilesPipeline):
                 if self.database and cur:
                     cur.close()
 
+        elif self.fact_ip:
+            """TODO:
+            1). Create a json object based on this schema: DONE
+            {
+                "device_name": <string>,
+                "device_part": <string>,           # new in FACT 2.5
+                "device_class": <string>,
+                "file_name": <string>,
+                "version": <string>,               # supersedes firmware_version field
+                "vendor": <string>,
+                "release_date": <string>,
+                "tags": <string>,
+                "requested_analysis_systems": <list>,
+                "binary": <string(base64)>
+            }
+            2.) Make a REST API Call to FACT Instance:
+                    - Define the JSON payload DONE
+                    - Set the request headers
+                    - Send the POST request with the JSON payload
+                    - Check the response status code
+            """
+            json_item = dict()
+            try:
+                json_item['device_name'] = item['product']
+                json_item['device_part'] = "complete"
+                json_item['device_class'] = item['category']
+                json_item['version'] = item['version']
+                json_item['vendor'] = item['vendor']
+                json_item['requested_analysis_systems'] = ""
+                json_item['binary'] = "extracted and converted to base64"
+                unpacker = Unpacker(item)
+                if unpacker.has_binary():
+                    unpacker.extract()
+                    json_item['binary'] = unpacker.file_to_base64()
+                    json_item['file_name'] = unpacker.binary
+                with open("./output/" + str(json_item['device_name']) + ".json_item.json", "w") as f:
+                    json.dump(json_item, f)
+            except Exception as e:
+                print(e)
+                print("Cant fill all necessary fields for FACT REST PUT")
         return item
