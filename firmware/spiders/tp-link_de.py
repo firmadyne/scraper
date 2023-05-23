@@ -2,6 +2,7 @@ from scrapy import Spider
 
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
+import re
 
 import urllib.request, urllib.parse, urllib.error
 
@@ -38,15 +39,20 @@ class TPLinkDESpider(Spider):
         #The Version is here the Revision, so it must be changed to a Tag for FACT PUT
         #Also we need to find a way to parse the version from the binary in the zip file because TP-Link doesn't have the version numbers on their website
         #Problem is that the zip file isn't downloaded at this point in the scraping process
-        version = ""
+        version = "Rev 1"
         if tmp[0] != 'v':
             links=response.css("div.hardware-version dl.select-version li a::attr(href)").extract()
             if len(links):
                 version = links[0].split('/')[-2]
+                # Extract the numeric part from the version string
+                numeric_part = re.findall(r'\d+', version)[0]
+                # Construct the revised version string
+                version = f"Rev{numeric_part}"
                 del links[0]
                 for link in links:
                     yield response.follow(link, meta=response.meta, callback=self.parse_product)
-
+        elif tmp[0] == 'v':
+            version = "Rev " + tmp[1:]
         firmwares=response.css("#content_Firmware > table")
         self.logger.debug("%s %s: %d binary firmware found." % (response.meta["product"], version, len(firmwares)))
         for firmware in firmwares:

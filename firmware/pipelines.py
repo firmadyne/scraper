@@ -4,12 +4,14 @@ from scrapy.exceptions import DropItem
 from scrapy.http import Request
 from scrapy.pipelines.files import FilesPipeline
 from firmware.unpacker import Unpacker
+from firmware.fact_rest import FactREST
 
 import os
 import hashlib
 import logging
 import urllib.parse
 import urllib.request, urllib.parse, urllib.error
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,7 @@ class FirmwarePipeline(FilesPipeline):
             import json
             self.database = None
             self.fact_ip = settings["FACT_INSTANCE"]
+            #self.fact_rest = FactREST(self.fact_ip)
         else:
             self.database = None
             self.fact_ip = None
@@ -197,20 +200,29 @@ class FirmwarePipeline(FilesPipeline):
             """
             json_item = dict()
             try:
+                #full_analist = ['binwalk', 'cpu_architecture', 'crypto_hints', 'crypto_material', 'cve_lookup', 'cwe_checker', 'device_tree', 'elf_analysis', 'exploit_mitigations', 'file_hashes', 'file_system_metadata', 'file_type', 'hardware_analysis', 'hashlookup', 'information_leaks', 'init_systems', 'input_vectors', 'interesting_uris', 'ip_and_uri_finder', 'ipc_analyzer', 'kernel_config', 'known_vulnerabilities', 'printable_strings', 'qemu_exec', 'software_components', 'source_code_analysis', 'string_evaluator', 'tlsh', 'users_and_passwords']
                 json_item['device_name'] = item['product']
                 json_item['device_part'] = "complete"
                 json_item['device_class'] = item['category']
                 json_item['version'] = item['version']
                 json_item['vendor'] = item['vendor']
-                json_item['requested_analysis_systems'] = ""
+                json_item['requested_analysis_systems'] = []
                 json_item['binary'] = "extracted and converted to base64"
+                json_item['release_date'] = item['date'].date().isoformat()
+                url = item['url']
+                # Extract the substring between the underscore and ".zip"
+                start_index = url.rfind("_") + 1
+                end_index = url.rfind(".zip")
+                number = url[start_index:end_index]
                 unpacker = Unpacker(item)
                 if unpacker.has_binary():
                     unpacker.extract()
                     json_item['binary'] = unpacker.file_to_base64()
                     json_item['file_name'] = unpacker.binary
-                with open("./output/" + str(json_item['device_name']) + ".json_item.json", "w") as f:
-                    json.dump(json_item, f)
+                    with open("./output/" + str(json_item['device_name']) + "_" + str(json_item['version']) + "_" + number + ".json", "w") as f:
+                        json.dump(json_item, f)
+                    #self.fact_rest.put_fw(json_item)
+
             except Exception as e:
                 print(e)
                 print("Cant fill all necessary fields for FACT REST PUT")
