@@ -9,7 +9,8 @@ import urllib.request, urllib.parse, urllib.error
 class TPLinkDESpider(Spider):
     name = "tp-link_de"
     vendor = "TP-Link"
-
+    test_mode = False
+    test_mode_count = 0
     start_urls = ["https://www.tp-link.com/de/support/download/"]
 
     def parse(self, response):
@@ -56,6 +57,8 @@ class TPLinkDESpider(Spider):
         firmwares=response.css("#content_Firmware > table")
         self.logger.debug("%s %s: %d binary firmware found." % (response.meta["product"], version, len(firmwares)))
         for firmware in firmwares:
+            if self.test_mode and self.test_mode_count >= 15:
+                break
             spans = firmware.css('tr.detail-info span')
             item = FirmwareLoader(
             item=FirmwareImage(), response=response, date_fmt=["%Y-%m-%d"])
@@ -69,6 +72,7 @@ class TPLinkDESpider(Spider):
             item.add_value("category", response.meta["category"])
             item.add_value("version", version)
             yield item.load_item()
+            self.test_mode_count = self.test_mode_count + 1
 
         # gpl_source_codes=response.css("#content_GPL-Code a")
         # self.logger.debug("%s %s: %d gpl source code found." % (response.meta["product"], version, len(gpl_source_codes)))

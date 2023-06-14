@@ -1,7 +1,11 @@
+import shutil
 import zipfile
 import os
 import base64
 import rarfile
+import logging
+
+logger = logging.getLogger(__name__)
 
 '''TODO:
     -Add additional archive types if necessary, for the scope of TP-Link it's enough to have zip and rar
@@ -59,6 +63,10 @@ class Unpacker:
         date in Scrapy -- maybe look into that to determine if it's possible to change this to the json objects
     '''
     def clean_up(self):
-        pass
+        if self.destination:
+            if os.path.isdir(self.destination):
+                shutil.rmtree(self.destination)
+                logger.info("Cleaned up by deleting Folder: %s", self.destination)
+
 
 
