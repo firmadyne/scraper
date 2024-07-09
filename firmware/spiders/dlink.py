@@ -45,7 +45,7 @@ class DLinkSpider(Spider):
 
     def parse_json(self, response):
         mib = None
-        json_response = json.loads(response.body_as_unicode())
+        json_response = json.loads(response.text)
 
         for entry in reversed(json_response["item"]):
             for file in reversed(entry["file"]):
