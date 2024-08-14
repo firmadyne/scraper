@@ -4,96 +4,85 @@ from scrapy.http import Request, FormRequest, HtmlResponse
 from firmware.items import FirmwareImage
 from firmware.loader import FirmwareLoader
 
-import urllib.request, urllib.parse, urllib.error
-
+import urllib.request
+import urllib.parse
+import urllib.error
+import re
 
 class BelkinSpider(Spider):
     name = "belkin"
     allowed_domains = ["belkin.com", "belkin.force.com"]
-    start_urls = ["http://www.belkin.com/us/support"]
+    start_urls = ["https://www.belkin.com/us/support-search?text=router"]
 
     def parse(self, response):
-        if not response.xpath(
-                "//form[@id='productSearchForm']//input[@name='category']/@value").extract()[0]:
-            for category in response.xpath("//form[@id='productSearchForm']/div[1]//ul[@class='select-options']//a/@data-id").extract():
-                yield FormRequest.from_response(response,
-                                                formname="productSearchForm",
-                                                formdata={
-                                                    "category": category},
-                                                callback=self.parse)
-        elif not response.xpath("//form[@id='productSearchForm']//input[@name='subCategory']/@value").extract()[0]:
-            for subcategory in response.xpath("//form[@id='productSearchForm']/div[2]//ul[@class='select-options']//a/@data-id").extract():
-                yield FormRequest.from_response(response,
-                                                formname="productSearchForm",
-                                                formdata={
-                                                    "subCategory": subcategory},
-                                                callback=self.parse)
-        else:
-            for product in response.xpath("//form[@id='productSearchForm']/div[3]//ul[@class='select-options']//a/@data-id").extract():
-                yield Request(
-                    url=urllib.parse.urljoin(
-                        response.url, "/us/support-product?pid=%s" % (product)),
-                    headers={"Referer": response.url},
-                    callback=self.parse_product)
+        yield from response.follow_all(css="a.prodPageLink", callback=self.parse_product)
 
+    #https://www.belkin.com/us/support-product?pid=01t80000003L8FDAA0
     def parse_product(self, response):
-        for item in response.xpath("//div[@id='main-content']//a"):
-            if "firmware" in item.xpath(".//text()").extract()[0].lower():
-                yield Request(
-                    url=urllib.parse.urljoin(
-                        response.url, item.xpath(".//@href").extract()[0]),
-                    headers={"Referer": response.url},
-                    meta={"product": response.xpath("//p[@class='product-part-number']/text()").extract()[0].split(' ')[-1]},
-                    callback=self.parse_download)
+        product = response.css(
+            "div.support-product-details-block h1::text").get()
+        yield from response.follow_all(css="div.support-product-details-block a[title='Downloads / Firmware']", meta={"product": product}, callback=self.parse_product_firmware)
 
-    def parse_download(self, response):
-        iframe = response.xpath(
-            "//div[@id='main-content']/iframe/@src").extract()
+    #https://www.belkin.com/us/support-article?articleNum=105643
+    #https://www.belkin.com/us/support-article?articleNum=4929
+    def parse_product_firmware(self, response):
+        version = ""
+        build = ""
+        url = ""
+        size = ""
+        description = ""
 
-        if iframe:
-            yield Request(
-                url=iframe[0],
-                headers={"Referer": response.url},
-                meta={"product": response.meta["product"]},
-                callback=self.parse_redirect)
+        divs = response.css("#support-article-downloads > div")
+        model = response.css("h1::text").get().replace(" Downloads","")
+        for div in divs:
+            if div.css("h2"):
+                version = div.xpath(".//h2/*/text()").get().replace("Versin ","")
+            elif div.css("h3"):
+                for el in div.xpath(".//*"):
+                    tag = el.xpath("name()").get()
+                    if tag == "h3":
+                        res_type = el.xpath(".//text()").get()
+                        self.logger.debug("%s: %s=%s" % (response.meta['product'], tag, res_type))
 
-    def parse_redirect(self, response):
-        for text in response.body.split('\''):
-            if "articles/" in text.lower() and "download/" in text.lower():
-                yield Request(
-                    url=urllib.parse.urljoin(response.url, text),
-                    headers={"Referer": response.url},
-                    meta={"product": response.meta["product"]},
-                    callback=self.parse_kb)
+                    elif tag == "span" or tag == "div":
+                        tmp=el.xpath(".//a/@href").get()
+                        if tmp:
+                            url = tmp
+                        for text in el.xpath(".//text()").getall():
+                            text=text.strip()
+                            matches = re.match(r"Ver\. ([\d\.]+)",text)
+                            if matches:
+                                build=matches[1]
+                            matches = re.match(r"(\d+) [KMG]B",text)
 
-    def parse_kb(self, response):
-        # initial html tokenization to find regions segmented by e.g. "======"
-        # or "------"
-        filtered = response.xpath(
-            "//div[@class='sfdc_richtext']").extract()[0].split("=-")
+                            if matches:
+                                size=matches[1]
+                        self.logger.debug("%s: %s=%s" % (response.meta['product'], tag, url))
 
-        for entry in [x and x.strip() for x in filtered]:
-            resp = HtmlResponse(url=response.url, body=entry,
-                                encoding=response.encoding)
+                    elif tag == "ul":
+                        description = res_type + "\n" + "\n".join(el.xpath(".//li//text()").getall())
+                        self.logger.debug("%s: %s=%s" % (response.meta['product'], tag, description))
+                        item = FirmwareLoader(item=FirmwareImage(),
+                                            response=response,
+                                            date_fmt=["%b %d, %Y", "%B %d, %Y",
+                                                        "%m/%d/%Y"])
+                        item.add_value("version", version)
+                        item.add_value("model", model)
+                        item.add_value("build", build)
+                        item.add_value("url", url)
+                        item.add_value("size", size)
+                        item.add_value("description", description)
+                        item.add_value("product", response.meta["product"])
+                        item.add_value("vendor", self.name)
+                        build = ""
+                        url = ""
+                        size = ""
+                        description = ""
 
-            for link in resp.xpath("//a"):
-                href = link.xpath("@href").extract()[0]
-                if "cache-www" in href:
-                    text = resp.xpath("//text()").extract()
-                    text_next = link.xpath("following::text()").extract()
-
-                    item = FirmwareLoader(item=FirmwareImage(),
-                                          response=response,
-                                          date_fmt=["%b %d, %Y", "%B %d, %Y",
-                                                    "%m/%d/%Y"])
-
-                    version = FirmwareLoader.find_version_period(text_next)
-                    if not version:
-                        version = FirmwareLoader.find_version_period(text)
-
-                    item.add_value("version", version)
-                    item.add_value("date", item.find_date(text))
-                    item.add_value("url", href)
-                    item.add_value("product", response.meta["product"])
-                    item.add_value("vendor", self.name)
-                    yield item.load_item()
+                        yield item.load_item()
+                    elif tag == "a":
+                        url = el.xpath("@href").get()
+                    elif tag == "br":
+                        self.logger.debug("%s: %s=%s" % (response.meta['product'], tag, ""))
+                    else:
+                        self.logger.warn("%s: %s=%s" % (response.meta['product'], tag, el.xpath(".//text()").get()))

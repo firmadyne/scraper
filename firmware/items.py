@@ -3,6 +3,7 @@ from scrapy.item import Item, Field
 class FirmwareImage(Item):
     category = Field(default=None)
     vendor = Field()
+    model = Field()
     product = Field(default=None)
 
     description = Field(default=None)
